@@ -8,6 +8,7 @@ import json, flatten_json, sys, csv
 TIDEPOOL_LOGIN_URL="https://api.tidepool.org/auth/login"
 TIDEPOOL_API_URL="https://api.tidepool.org/data/{userid}"
 TIDEPOOL_TOKEN_HEADER="x-tidepool-session-token"
+TIDEPOOL_CONTENT_ENCODING="utf-8" # assumed
 
 def download_tidepool(email, password, fp=sys.stdout, login_url=TIDEPOOL_LOGIN_URL, format='json'):
     login_response = requests.post(login_url, auth=HTTPBasicAuth(email, password))
@@ -17,9 +18,11 @@ def download_tidepool(email, password, fp=sys.stdout, login_url=TIDEPOOL_LOGIN_U
     api_url = TIDEPOOL_API_URL.format(userid=userid)
     content_type="application/json"
     api_response = requests.get(api_url, headers={ TIDEPOOL_TOKEN_HEADER: token, "Content-Type": content_type})
+    global ar
+    ar = api_response
     if format == 'json':
         # Write JSON content as is
-        fp.write(api_response.content)
+        fp.write(api_response.content.decode(TIDEPOOL_CONTENT_ENCODING))
     else:
         data = json.loads(api_response.content)
 
@@ -30,7 +33,7 @@ def download_tidepool(email, password, fp=sys.stdout, login_url=TIDEPOOL_LOGIN_U
             # Flatten JSON objects
             flat_data = [flatten_json.flatten(i, separator=".") for i in data]
             if format == 'flat_json':
-                json.dump(flat_data)
+                json.dump(flat_data, fp)
             elif format == 'flat_json_lines':
                 for line in flat_data:
                     fp.write(json.dumps(line)+"\n")
@@ -47,7 +50,6 @@ def download_tidepool(email, password, fp=sys.stdout, login_url=TIDEPOOL_LOGIN_U
                     csvwriter.writerow(to_write)
         else:
             raise Exception("Format not supported: {0}".format(format))
-
 
 def main():
     import argparse, os, getpass
